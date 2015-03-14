@@ -1,0 +1,22 @@
+{
+  "name": "duang",
+  "version": "1.0.0",
+  "description": "duang",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ssnau/duang.git"
+  },
+  "keywords": [
+    "duang"
+  ],
+  "author": "ssnau",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ssnau/duang/issues"
+  },
+  "homepage": "https://github.com/ssnau/duang"
+}
