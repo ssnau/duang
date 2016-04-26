@@ -8,17 +8,14 @@ module.exports = {
 function obj_map(obj, fn) {
   var ret = {};
   Object.keys(obj)
-    .forEach(function(name) {
-      ret[name] = fn(obj[name]);
+    .forEach(function(key) {
+      ret[key] = fn(key, obj[key]);
     });
   return ret;
 }
 
 function transform(code, fn) {
   return babel.transform(code, {
-    presets: [
-      require('babel-preset-turbo')
-    ],
     plugins: [
       replaceRequire
     ]

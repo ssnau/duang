@@ -5,7 +5,8 @@ var join = require('path').join;
 var execSync = require('child_process').execSync;
 var resolve = require('resolve');
 var builtins = require('builtin-modules');
-var rr      = require('./transform');
+var rr      = require('./util').transform;
+var obj_map = require('./util').obj_map;
 var argv = require('argv-parse');
 
 var args = argv({
@@ -17,17 +18,31 @@ var args = argv({
     type: 'string',
     alias: 'o'
   },
+  nopack: {
+    type: 'boolean',
+  }
 });
 
 var cwd = process.cwd();
+var rcjson = readJSON(join(cwd, '.duangrc'));
+
 var srcdir = args.source || cwd;
-var destdir = args.output;
+var destdir = args.output || rcjson.out;
+var nopack = args.nopack;
+console.log('nopack is', nopack);
+
 if (!destdir) {
   throw new Error('You must specify --ouput');
 }
 if (destdir[0] !== '/') {
   destdir = join(cwd, destdir);
 }
+
+rcjson.alias = obj_map(rcjson.alias || {"@ROOT": "."}, (key, val) => {
+  if (val[0] === '/') return val;
+  return join(destdir, val);
+});
+console.log(rcjson);
 
 compile(srcdir, destdir);
 
@@ -36,9 +51,9 @@ function compile(srcdir, destdir) {
   createFolder(destdir);
   // 1. copy every file into destdir
   for (let file of readDir(srcdir)) {
-    if (file !== destdir) {
-      execSync(`cp -r ${file} ${destdir}/`);
-    }
+    if (file === destdir) continue;
+    if (nopack && /node_modules$/.test(file)) continue;
+    execSync(`cp -r ${file} ${destdir}/`);
   }
   // 2. walk every js file
   traverse(destdir, function (file) {
@@ -50,15 +65,20 @@ function compile(srcdir, destdir) {
         rr(content, (name) => {
           if (name.charAt(0) === '.') return name;
           if (builtins.indexOf(name) > -1) return name;
+          // deal with alias
+          var alias = Object.keys(rcjson.alias).find(a => name.indexOf(a) === 0);
+          if (alias) name = relative(destdir, name.replace(alias, rcjson.alias[alias]));
+
+          if (nopack) return name;
           var dir = path.dirname(file);
           var depfile = resolve.sync(name, {basedir: dir});
-          var rp = path.relative(dir, depfile).replace(/node_modules/g, 'xnode_modules');
-          return rp[0] === '.' ? rp : ('./' + rp);
+          return relative(dir, depfile).replace(/node_modules/g, 'xnode_modules');
         })
       )
     );
   });
   // 3. traverse and change node_modules => xnode_modules
+  if (nopack) return;
   traverse(destdir, function (dir) {
     if (!fs.statSync(dir).isDirectory()) return;
     if (path.basename(dir) === 'node_modules') {
@@ -88,11 +108,6 @@ function traverse(dir, cb) {
   });
 }
 
-function getPackageJSON(dir) {
-  return safe(() => 
-    JSON.parse(readFile(join(dir, 'package.json')))
-  ) || {};
-}
 
 function safe(fn) {
   try {
@@ -109,8 +124,24 @@ function writeFile(file, content) {
   return fs.writeFileSync(file, content, 'utf8');
 }
 
+function readJSON(file) {
+  try {
+    return JSON.parse(readFile(file));
+  } catch (e) {
+    return {}
+  }
+}
+
+function getPackageJSON(dir) {
+  return readJSON(join(dir, 'package.json'));
+}
+
 function createFolder(p) {
   return execSync(`mkdir -p ${p}`);
+}
+function relative(a, b) {
+  var rp = path.relative(a, b);
+  return rp[0] === '.' ? rp : ('./' + rp);
 }
 
 function noop(){}
