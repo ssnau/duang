@@ -1,22 +1,17 @@
 {
   "name": "duang",
-  "version": "1.0.0",
-  "description": "duang",
+  "version": "1.0.4",
+  "description": "",
   "main": "index.js",
-  "scripts": {
-    "test": "npm test"
+  "bin": {
+    "duang": "./duang"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ssnau/duang.git"
-  },
-  "keywords": [
-    "duang"
-  ],
-  "author": "ssnau",
+  "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/ssnau/duang/issues"
-  },
-  "homepage": "https://github.com/ssnau/duang"
+  "dependencies": {
+    "argv-parse": "^1.0.1",
+    "babel-core": "^6.7.7",
+    "builtin-modules": "^1.1.1",
+    "resolve": "^1.1.7"
+  }
 }
