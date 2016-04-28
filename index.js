@@ -27,7 +27,7 @@ var args = argv({
 
 var cwd = process.cwd();
 var rcjson = readJSON(join(cwd, '.duangrc'));
-var srcdir = args.source || cwd;
+var srcdir = args.source || rcjson.source || cwd;
 var destdir = args.output || rcjson.output;
 var nopack = args.nopack;
 
