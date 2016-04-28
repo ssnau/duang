@@ -9,6 +9,8 @@ var rr      = require('./util').transform;
 var obj_map = require('./util').obj_map;
 var argv = require('argv-parse');
 
+var requireREG = /require\s*\(/;
+
 var args = argv({
   source: {
     type: 'string',
@@ -25,14 +27,12 @@ var args = argv({
 
 var cwd = process.cwd();
 var rcjson = readJSON(join(cwd, '.duangrc'));
-
 var srcdir = args.source || cwd;
-var destdir = args.output || rcjson.out;
+var destdir = args.output || rcjson.output;
 var nopack = args.nopack;
-console.log('nopack is', nopack);
 
 if (!destdir) {
-  throw new Error('You must specify --ouput');
+  throw new Error('You must specify --output');
 }
 if (destdir[0] !== '/') {
   destdir = join(cwd, destdir);
@@ -42,8 +42,8 @@ rcjson.alias = obj_map(rcjson.alias || {"@ROOT": "."}, (key, val) => {
   if (val[0] === '/') return val;
   return join(destdir, val);
 });
-console.log(rcjson);
 
+console.log('###start...');
 compile(srcdir, destdir);
 
 function compile(srcdir, destdir) {
@@ -55,11 +55,24 @@ function compile(srcdir, destdir) {
     if (nopack && /node_modules$/.test(file)) continue;
     execSync(`cp -r ${file} ${destdir}/`);
   }
+  // 1.1 compute total files
+  var total = 0, count = 0, lasttime = Date.now();
+  traverse(destdir, file => total++);
   // 2. walk every js file
   traverse(destdir, function (file) {
+    count++;
+    if (Date.now() - lasttime > 5000) {
+      console.log('progress: ' + (count / total * 100).toFixed(2) + '%');
+      lasttime = Date.now();
+    }
+
     if (!/\.js$/.test(file)) return;
     if (fs.statSync(file).isDirectory()) return; // skip folder
     var content = readFile(file);
+    if (!requireREG.test(content)) return;
+    // more than 500 char in a single line, should not be source code.
+    var lines = content.split("\n");
+    if (lines.length > 5000 || lines.some(x => x.length  > 500)) return;
     safe(() => 
       writeFile(file, 
         rr(content, (name) => {
@@ -73,18 +86,17 @@ function compile(srcdir, destdir) {
           var dir = path.dirname(file);
           var depfile = resolve.sync(name, {basedir: dir});
           return relative(dir, depfile).replace(/node_modules/g, 'xnode_modules');
-        })
+        }, {usePreset: file.indexOf('node_modules') == -1})
       )
     );
   });
-  // 3. traverse and change node_modules => xnode_modules
   if (nopack) return;
+  // 3. traverse and change node_modules => xnode_modules
   traverse(destdir, function (dir) {
     if (!fs.statSync(dir).isDirectory()) return;
     if (path.basename(dir) === 'node_modules') {
       var dname = dir.replace(/node_modules$/, 'xnode_modules');
       var cmd = `mv ${dir} ${dname}`
-      console.log('executing ' + cmd);
       execSync(cmd)
     }
   });
@@ -126,7 +138,7 @@ function writeFile(file, content) {
 
 function readJSON(file) {
   try {
-    return JSON.parse(readFile(file));
+    return eval('(' + readFile(file) + ')');
   } catch (e) {
     return {}
   }
