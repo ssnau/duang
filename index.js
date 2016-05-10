@@ -20,19 +20,32 @@ var args = argv({
     type: 'string',
     alias: 'o'
   },
-  nopack: {
+  pack: {
     type: 'boolean',
+  },
+  version: {
+    type: 'boolean',
+    alias: 'v'
   }
 });
+
+// if query for version
+if (args.version) {
+  console.log(require('./package.json').version);
+  return;
+}
 
 var cwd = process.cwd();
 var rcjson = readJSON(join(cwd, '.duangrc'));
 var srcdir = args.source || rcjson.source || cwd;
 var destdir = args.output || rcjson.output;
-var nopack = args.nopack;
+var pack = args.pack;
 
 if (!destdir) {
   throw new Error('You must specify --output');
+}
+if (srcdir[0] !== '/') {
+  srcdir = join(cwd, srcdir);
 }
 if (destdir[0] !== '/') {
   destdir = join(cwd, destdir);
@@ -43,6 +56,7 @@ rcjson.alias = obj_map(rcjson.alias || {"@ROOT": "."}, (key, val) => {
   return join(destdir, val);
 });
 
+
 console.log('###start...');
 compile(srcdir, destdir);
 
@@ -52,7 +66,7 @@ function compile(srcdir, destdir) {
   // 1. copy every file into destdir
   for (let file of readDir(srcdir)) {
     if (file === destdir) continue;
-    if (nopack && /node_modules$/.test(file)) continue;
+    if (!pack && /node_modules$/.test(file)) continue;
     execSync(`cp -r ${file} ${destdir}/`);
   }
   // 1.1 compute total files
@@ -82,7 +96,7 @@ function compile(srcdir, destdir) {
           var alias = Object.keys(rcjson.alias).find(a => name.indexOf(a) === 0);
           if (alias) name = relative(destdir, name.replace(alias, rcjson.alias[alias]));
 
-          if (nopack) return name;
+          if (!pack) return name;
           var dir = path.dirname(file);
           var depfile = resolve.sync(name, {basedir: dir});
           return relative(dir, depfile).replace(/node_modules/g, 'xnode_modules');
@@ -90,7 +104,7 @@ function compile(srcdir, destdir) {
       )
     );
   });
-  if (nopack) return;
+  if (!pack) return;
   // 3. traverse and change node_modules => xnode_modules
   traverse(destdir, function (dir) {
     if (!fs.statSync(dir).isDirectory()) return;

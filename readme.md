@@ -17,7 +17,7 @@ npm install duang -g
 
 ```
 cd /path/to/your/project
-duang --output out
+duang --output out --pack
 ```
 
 You will see there is an `out` in which there is a `xnode_modules` folder lies.
